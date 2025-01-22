@@ -3,8 +3,10 @@ import time
 
 import discord
 from dotenv import dotenv_values
-from discord import app_commands
+from discord import app_commands, VoiceChannel
 from discord.ext import commands
+
+import yt
 
 config = dotenv_values(".env")
 
@@ -13,23 +15,18 @@ intents.message_content = True
 
 bot = commands.Bot(command_prefix="~", intents=intents)
 
+vc : discord.VoiceClient = None
+
 start_time = time.time() #my foolishness
 
 @bot.event
 async def on_ready():
-	try:
-		synced = await bot.tree.sync()
-		print(f'Synced: {len(synced)} commands')
-	except Exception as e:
-		print(f'[ERROR]\t{e}')
-
 	await bot.change_presence(activity=discord.Activity(name='Shinji whine', type=discord.ActivityType.listening))
 	print(f'We have logged in as {bot.user}')
 
 
-
 @bot.tree.command(
-	name="runtime",
+	name="uptime",
 	description="Find out how long the bot's been running!",
 )
 async def runtime(interaction : discord.Interaction):
@@ -39,13 +36,57 @@ async def runtime(interaction : discord.Interaction):
 @bot.tree.command(name="say")
 @app_commands.describe(thing_to_say="What should I say?")
 async def say(interaction: discord.Interaction, thing_to_say: str):
-	await interaction.response.send_message(f"{interaction.user.name} said: '{thing_to_say}'") # noqa
+	await interaction.response.send_message(f"{thing_to_say}") # noqa
 
-@bot.event
-async def on_message(message):
-	if message.author == bot.user:
+@bot.tree.command(name="pig-latin")
+@app_commands.describe(phrase="What to pig-latinize")
+async def piggy(interaction: discord.Interaction, phrase: str):
+	if len(phrase) < 1:
+		return
+	words = phrase.split()
+	new_phrase : str = ""
+	for word in words:
+		word = word + word[0]
+		word = word + ("yay" if "aeiou".find(word[0].lower()) > -1
+						   else "ay")
+		new_phrase = new_phrase + word[1:] + " "
+	await interaction.response.send_message(new_phrase[:-1])
+
+
+
+
+@bot.tree.command(name="download-to-host")
+@app_commands.describe(yt_link="Link to a YouTube video")
+async def download_to_host(interaction: discord.Interaction, yt_link : str):
+	await interaction.response.send_message("Attempting download...")
+	downloaded = await yt.yt_download(yt_link)
+	await interaction.channel.send(f'Successfully downloaded "{yt_link}"!' if downloaded else f'Failed to download "{yt_link}" :(', suppress_embeds=True)
+
+@bot.tree.command(name="sync")
+async def sync(interaction : discord.Interaction):
+	if interaction.user.name != config["DEVELOPER_USERNAME"]:
+		await interaction.response.send_message(f"You are not worthy to use this command {interaction.user.nick if interaction.user.nick is not None else interaction.user.global_name}")
 		return
 
+	try:
+		synced = await bot.tree.sync()
+	except Exception as e:
+		print(f'[ERROR]:\tFailed to sync commands: {e}')
+		return
+	print(f"Just attempted to sync {len(synced)} commands")
+	await interaction.channel.send(f"Attempting to sync {len(synced)} slash commands to {interaction.guild}...")
+
+@bot.tree.command(name="hop-on")
+async def hop_on(interaction : discord.Interaction):
+	global vc
+	await interaction.response.send_message("Aight bro, I'm hopping on.")
+	vc = await interaction.user.voice.channel.connect(self_deaf=True)
+
+
+@bot.event
+async def on_message(message : discord.Message):
+	if message.author == bot.user:
+		return
 
 	if message.content.startswith(f'{bot.command_prefix}hello'):
 		await message.channel.send(f"Hello! I came online at {start_time}!!!")
