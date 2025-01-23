@@ -65,5 +65,8 @@ async def sync(interaction : discord.Interaction):
 @bot.tree.command(name="hop-on")
 async def hop_on(interaction : discord.Interaction):
 	global vc
-	await interaction.response.send_message("Aight bro, I'm hopping on.")
-	vc = await interaction.user.voice.channel.connect(self_deaf=True)
+	voice = interaction.user.voice
+	channel_to_join = voice.channel if voice is not None else None
+	await interaction.response.send_message("Aight bro, I'm hopping on." if channel_to_join is not None else "Bro... you tricked me... you're not even in call...")
+	if channel_to_join is not None:
+		vc = await channel_to_join.connect(self_deaf=True)
