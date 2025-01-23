@@ -10,5 +10,5 @@ intents.message_content = True
 
 bot = commands.Bot(command_prefix="~", intents=intents)
 
-start_time = None
+start_time = time.time()
 

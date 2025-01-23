@@ -9,7 +9,6 @@ import slashcommands
 
 bot = declarations.bot
 config = declarations.config
-declarations.start_time = time.time()
 
 @bot.event
 async def on_ready():
