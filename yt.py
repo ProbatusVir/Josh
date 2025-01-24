@@ -1,20 +1,20 @@
-from pytubefix import YouTube
-from dotenv import dotenv_values
+from pytubefix import YouTube, Search
 import pytubefix
+
+from dotenv import dotenv_values
 from discord import Interaction
 
+import pytubefix.innertube
+
 config = dotenv_values()
-
-
 
 #TODO: Make this return codes to be handled for decoupling.
 async def yt_download(link : str, interaction : Interaction, file_format : str ='mp4'):
 	try:
 		yt = YouTube(link, use_oauth=True)
 	except Exception as e:
-		await interaction.edit_original_response(content="It appears the link is invalid.")
-		print(f"Uh oh. Something went wrong Opening YouTube link!\t{e}")
-		return False
+		print(f"[ERROR]: Probably malformed link. Attempting to query: {e}")
+		yt = await yt_search(link, interaction, command=False)
 
 	mp4_streams = yt.streams.filter(file_extension=file_format)
 	d_video: pytubefix.streams.Stream = mp4_streams[-1] # The last one is the highest resolution
@@ -27,8 +27,17 @@ async def yt_download(link : str, interaction : Interaction, file_format : str =
 		print(f"Uh oh! Something went wrong downloading the video!\t{e}")
 		return False
 
-	await interaction.edit_original_response(content=f'Successfully downloaded {link} ! We"re testing this message right now.')
+	await interaction.edit_original_response(content=f'Successfully downloaded {yt.title} !')
 	return True
+
+async def yt_search(query : str, interaction : Interaction, command : bool = True) -> YouTube:
+	search = pytubefix.Search(query=query, client='WEB')
+	results : dict = search.fetch_and_parse()[0]
+	first_value : YouTube = next(iter(results.values()))[0]
+
+	if command:
+		await interaction.edit_original_response(content=f'Found: {first_value.title}')
+	return first_value
 
 
 
