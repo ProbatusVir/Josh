@@ -1,7 +1,8 @@
+import asyncio
 import time
 
 import discord
-from discord import app_commands, VoiceChannel
+from discord import app_commands
 import yt
 
 import declarations
@@ -44,9 +45,12 @@ async def piggy(interaction: discord.Interaction, phrase: str):
 @bot.tree.command(name="download-to-host")
 @app_commands.describe(yt_link="Link to a YouTube video")
 async def download_to_host(interaction: discord.Interaction, yt_link : str):
-	await interaction.response.send_message("Attempting download...")
-	downloaded = await yt.yt_download(yt_link)
-	await interaction.channel.send(f'Successfully downloaded "{yt_link}"!' if downloaded else f'Failed to download "{yt_link}" :(', suppress_embeds=True)
+	if interaction.user.name == config["ANNOYING_FRIEND_USERNAME"]:
+		await interaction.response.send_message(f"{config["ANNOYING_FRIEND_NAME"]}STOP!")
+		return
+	else:
+		await interaction.response.send_message("Attempting download....")
+		asyncio.create_task(yt.yt_download(yt_link, interaction))
 
 @bot.tree.command(name="sync")
 async def sync(interaction : discord.Interaction):
@@ -54,13 +58,14 @@ async def sync(interaction : discord.Interaction):
 		await interaction.response.send_message(f"You are not worthy to use this command {interaction.user.nick if interaction.user.nick is not None else interaction.user.global_name}")
 		return
 
+	await interaction.response.send_message(f"Attempting to sync slash commands to {interaction.guild}...")
 	try:
 		synced = await bot.tree.sync()
 	except Exception as e:
 		print(f'[ERROR]:\tFailed to sync commands: {e}')
 		return
 	print(f"Just attempted to sync {len(synced)} commands")
-	await interaction.channel.send(f"Attempting to sync {len(synced)} slash commands to {interaction.guild}...")
+	await interaction.edit_original_response(content=f"Synchronized {len(synced)} slash commands to {interaction.guild}...")
 
 @bot.tree.command(name="hop-on")
 async def hop_on(interaction : discord.Interaction):
