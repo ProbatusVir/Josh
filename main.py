@@ -1,6 +1,6 @@
 # This example requires the 'message_content' intent.
 import importlib
-import time
+import os
 
 import discord
 
@@ -26,6 +26,7 @@ async def on_message(message : discord.Message):
 
 	if message.content.startswith(f'{bot.command_prefix}hello'):
 		await message.channel.send(f"Hello! I came online at {declarations.start_time}!!!")
+		return
 
 	if message.content.startswith(f'{bot.command_prefix}reload'):
 		await message.channel.send(f"Reloading...")
@@ -35,6 +36,13 @@ async def on_message(message : discord.Message):
 			bot.tree.remove_command(commands[i].name)
 
 		importlib.reload(slashcommands)
+		return
+
+	if message.content.startswith(f'{bot.command_prefix}clear') and message.author.name:
+		await message.channel.send(f"Clearing logs...")
+		os.system('clear')
+		return
+
 
 
 bot.run(config["DISCORD_TOKEN"])
