@@ -60,7 +60,7 @@ async def sync(interaction : discord.Interaction):
 
 	await interaction.response.send_message(f"Attempting to sync slash commands to {interaction.guild}...")
 	try:
-		synced = await bot.tree.sync()
+		synced = await bot.tree.sync(interaction.guild_id)
 	except Exception as e:
 		print(f'[ERROR]:\tFailed to sync commands: {e}')
 		return
