@@ -62,7 +62,7 @@ async def sync(interaction : discord.Interaction):
 	try:
 		synced = await bot.tree.sync(interaction.guild_id)
 	except Exception as e:
-		await interaction.edit_original_response("Failed to sync commands")
+		await interaction.edit_original_response(content="Failed to sync commands")
 		print(f'[ERROR]:\tFailed to sync commands: {e}')
 		return
 	print(f"Just attempted to sync {len(synced)} commands")
