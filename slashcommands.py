@@ -1,7 +1,6 @@
 import asyncio
 import collections
 import time
-from asyncio import Task
 
 import discord
 from discord import app_commands
@@ -17,10 +16,10 @@ config = declarations.config
 start_time = declarations.start_time
 vc : discord.VoiceClient | None = None
 Q : collections.deque[str] = collections.deque()
-playing : Task | None = None
+paused = False
 
 def get_vid_name(video : str) -> str:
-	return video.split('\\')[-1]
+	return video.split('\\')[-1][:-4]
 
 async def join_voice(interaction : discord.Interaction) -> bool:
 	global vc
@@ -40,10 +39,12 @@ async def join_voice(interaction : discord.Interaction) -> bool:
 #Play the music
 async def play_music(interaction : discord.Interaction) -> None:
 	global vc
-	global playing
+	global paused
 
 	while vc.is_playing():
 		await asyncio.sleep(1)
+
+
 
 	def after(e : Exception | None) ->  None:
 		if e is not None:
@@ -55,7 +56,7 @@ async def play_music(interaction : discord.Interaction) -> None:
 		await interaction.edit_original_response(content=f'Now playing {get_vid_name(song)}')
 		source = discord.FFmpegOpusAudio(song)
 		vc.play(source, signal_type='music', after=after )
-		while vc.is_playing():
+		while vc.is_playing() or paused:
 			await asyncio.sleep(1)
 		await interaction.edit_original_response(content=f"Finished {get_vid_name(song)}")
 	await interaction.edit_original_response(content="Finished queue!")
@@ -90,18 +91,6 @@ async def piggy(interaction: discord.Interaction, phrase: str):
 		new_phrase = new_phrase + word[1:] + " "
 	await interaction.response.send_message(new_phrase[:-1])
 
-
-
-
-@bot.tree.command(name="download-to-host", description=f'Download a YouTube video to {config["DEVELOPER_USERNAME"]}\'s computer!')
-@app_commands.describe(yt_query="Accepts a YT link or a search")
-async def download_to_host(interaction: discord.Interaction, yt_query : str):
-	if interaction.user.name == config["ANNOYING_FRIEND_USERNAME"]:
-		await interaction.response.send_message(f"{config["ANNOYING_FRIEND_NAME"]}STOP!")
-		return
-	else:
-		await interaction.response.send_message("Attempting download....")
-		asyncio.create_task(yt.yt_download(yt_query, interaction))
 
 @bot.tree.command(name="sync", description=f'Only for {config["DEVELOPER_USERNAME"]}! Synchronizes slash commands with your server.')
 async def sync(interaction : discord.Interaction):
@@ -146,21 +135,20 @@ async def play_file(interaction : discord.Interaction, file: discord.Attachment)
 @app_commands.describe(yt_query="Accepts a YT link or a search")
 async def play(interaction: discord.Interaction, yt_query : str):
 	global playing
+	# join logic
+	joined = await join_voice(interaction)
+	if not joined:
+		await interaction.response.send_message("There was no channel to join.")
+		return
+	#look for video B)
 	await interaction.response.send_message("Looking for the video...")
 	Q.append(await yt.yt_download(yt_query, interaction))
 	# since this runs in a loop later down, only the original function call must persist so as to not interrupt
 	if len(Q) > 1:
 		await interaction.edit_original_response(content=f'"{get_vid_name(Q[len(Q) - 1])}" queued!')
 		return
-	#join logic
-	joined = await join_voice(interaction)
-	if not joined:
-		await interaction.edit_original_response(content="There was no channel to join.")
-		return
-	#if playing is None:
-	playing = asyncio.create_task(play_music(interaction))
-	#else:
-	#	return
+
+	asyncio.create_task(play_music(interaction))
 
 
 @bot.tree.command(name="queue", description="Get the queue.")
@@ -188,9 +176,11 @@ async def stop(interaction: discord.Interaction):
 
 @bot.tree.command(name="pause", description="Pause.")
 async def pause(interaction: discord.Interaction):
+	global paused
 	if vc is not None:
 		if vc.is_playing():
 			await interaction.response.send_message("Pausing.")
+			paused = True
 			vc.pause()
 		else:
 			await interaction.response.send_message("Bruh, literally nothing is playing.")
@@ -200,13 +190,11 @@ async def pause(interaction: discord.Interaction):
 
 @bot.tree.command(name="resume", description="Resume.")
 async def resume(interaction: discord.Interaction):
+	global paused
 	if vc is not None:
-		if vc.is_playing():
-			await interaction.response.send_message("Resuming...")
-			vc.resume()
-		else:
-			await interaction.response.send_message("Bruh, literally nothing is playing.")
-			return
+		await interaction.response.send_message("Resuming...")
+		paused = False
+		vc.resume()
 	else:
 		await interaction.response.send_message("Bruh, I'm not even in call???")
 
@@ -214,3 +202,15 @@ async def resume(interaction: discord.Interaction):
 async def clear(interaction: discord.Interaction):
 	await interaction.response.send_message("Deleting queue...")
 	Q.clear()
+
+@bot.tree.command(name="skip", description="Skip the current song.")
+async def skip(interaction: discord.Interaction):
+	await interaction.response.send_message("Skipping current song.")
+	if vc is not None:
+		if vc.is_playing():
+			vc.stop()
+		else:
+			await interaction.edit_original_response(content="Bruh, literally nothing is playing.")
+	else:
+		await interaction.edit_original_response(content="Bruh, I'm not even in call???")
+
