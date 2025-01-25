@@ -9,7 +9,7 @@ import pytubefix.innertube
 config = dotenv_values()
 
 #TODO: Make this return codes to be handled for decoupling.
-async def yt_download(link : str, interaction : Interaction, file_format : str ='mp4'):
+async def yt_download(link : str, interaction : Interaction, file_format : str ='mp4') -> str | None:
 	try:
 		yt = YouTube(link, use_oauth=True)
 	except Exception as e:
@@ -20,15 +20,15 @@ async def yt_download(link : str, interaction : Interaction, file_format : str =
 	d_video: pytubefix.streams.Stream = mp4_streams[-1] # The last one is the highest resolution
 
 	try:
-		d_video.download(output_path=config["YT_SAVE_PATH"], filename=f'{yt.title}.{file_format}', skip_existing=True)
+		path = d_video.download(output_path=config["YT_SAVE_PATH"], filename=f'{yt.title}.{file_format}', skip_existing=True)
 		print(f"Successfully downloaded {yt.title}")
 	except Exception as e:
 		await interaction.edit_original_response(content="Something went wrong downloading video!")
 		print(f"Uh oh! Something went wrong downloading the video!\t{e}")
-		return False
+		return None
 
 	await interaction.edit_original_response(content=f'Successfully downloaded {yt.title} !')
-	return True
+	return path
 
 async def yt_search(query : str, interaction : Interaction, command : bool = True) -> YouTube:
 	search = pytubefix.Search(query=query, client='WEB')
