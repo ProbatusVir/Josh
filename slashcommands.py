@@ -1,8 +1,10 @@
 import asyncio
+import collections
 import time
+from asyncio import Task
 
 import discord
-from discord import app_commands, File
+from discord import app_commands
 import yt
 
 import discord.opus
@@ -13,10 +15,19 @@ config = declarations.config
 
 # I'm realizing now that I need a bot class to extend the base.
 start_time = declarations.start_time
-vc : discord.VoiceClient = None
+vc : discord.VoiceClient | None = None
+Q : collections.deque[str] = collections.deque()
+playing : Task | None = None
+
+def get_vid_name(video : str) -> str:
+	return video.split('\\')[-1]
 
 async def join_voice(interaction : discord.Interaction) -> bool:
 	global vc
+	if len(bot.voice_clients): # This doesn't scale, btw. I could make a thing that looks for the guild and then sees what channel he's in, if there's a hit.
+		vc = bot.voice_clients[0]
+		print("Bot's already in call.")
+		return True
 	if interaction.user.voice is None:
 		return False
 	channel = interaction.user.voice.channel
@@ -26,6 +37,31 @@ async def join_voice(interaction : discord.Interaction) -> bool:
 	else:
 		return False
 
+#Play the music
+async def play_music(interaction : discord.Interaction) -> None:
+	global vc
+	global playing
+
+	while vc.is_playing():
+		await asyncio.sleep(1)
+
+	def after(e : Exception | None) ->  None:
+		if e is not None:
+			print(f'[ERROR] Unexpected: {e}')
+		Q.popleft()
+
+	while len(Q) > 0:
+		song = Q[0]
+		await interaction.edit_original_response(content=f'Now playing {get_vid_name(song)}')
+		source = discord.FFmpegOpusAudio(song)
+		vc.play(source, signal_type='music', after=after )
+		while vc.is_playing():
+			await asyncio.sleep(1)
+		await interaction.edit_original_response(content=f"Finished {get_vid_name(song)}")
+	await interaction.edit_original_response(content="Finished queue!")
+	await vc.disconnect()
+	vc = None
+	playing = None
 
 @bot.tree.command(
 	name="uptime",
@@ -59,13 +95,13 @@ async def piggy(interaction: discord.Interaction, phrase: str):
 
 @bot.tree.command(name="download-to-host", description=f'Download a YouTube video to {config["DEVELOPER_USERNAME"]}\'s computer!')
 @app_commands.describe(yt_query="Accepts a YT link or a search")
-async def download_to_host(interaction: discord.Interaction, yt_link : str):
+async def download_to_host(interaction: discord.Interaction, yt_query : str):
 	if interaction.user.name == config["ANNOYING_FRIEND_USERNAME"]:
 		await interaction.response.send_message(f"{config["ANNOYING_FRIEND_NAME"]}STOP!")
 		return
 	else:
 		await interaction.response.send_message("Attempting download....")
-		asyncio.create_task(yt.yt_download(yt_link, interaction))
+		asyncio.create_task(yt.yt_download(yt_query, interaction))
 
 @bot.tree.command(name="sync", description=f'Only for {config["DEVELOPER_USERNAME"]}! Synchronizes slash commands with your server.')
 async def sync(interaction : discord.Interaction):
@@ -100,6 +136,81 @@ async def play_file(interaction : discord.Interaction, file: discord.Attachment)
 	if not joined:
 		await interaction.response.send_message(f"There was no channel to join.")
 		return
+	await interaction.response.send_message(f"Joined {vc.channel.name}")
+	temp = await file.to_file()
+	source = discord.FFmpegOpusAudio(f"{config["YT_SAVE_PATH"]}/viva la taper fade (I USED TO RULE THE WORLD FORTNITE PARODY).mp4")
+	vc.play(source)
+	await interaction.edit_original_response(content=f"Playing {temp.filename}")
 
-	await interaction.response.send_message(f"Playing {file.filename}")
-	#vc.play()
+@bot.tree.command(name="play", description="Play.")
+@app_commands.describe(yt_query="Accepts a YT link or a search")
+async def play(interaction: discord.Interaction, yt_query : str):
+	global playing
+	await interaction.response.send_message("Looking for the video...")
+	Q.append(await yt.yt_download(yt_query, interaction))
+	# since this runs in a loop later down, only the original function call must persist so as to not interrupt
+	if len(Q) > 1:
+		await interaction.edit_original_response(content=f'"{get_vid_name(Q[len(Q) - 1])}" queued!')
+		return
+	#join logic
+	joined = await join_voice(interaction)
+	if not joined:
+		await interaction.edit_original_response(content="There was no channel to join.")
+		return
+	#if playing is None:
+	playing = asyncio.create_task(play_music(interaction))
+	#else:
+	#	return
+
+
+@bot.tree.command(name="queue", description="Get the queue.")
+async def queue(interaction: discord.Interaction):
+	if len(Q) == 0:
+		await interaction.response.send_message("Nothing's playing!")
+		return
+	capture = Q.copy()
+	qrep = ""
+	for i, e in enumerate(capture):
+		qrep += f"{i + 1}. {get_vid_name(e)}\n"
+	await interaction.response.send_message(qrep)
+
+@bot.tree.command(name="stop", description="Stop something???.")
+async def stop(interaction: discord.Interaction):
+	if vc is not None:
+		if vc.is_playing():
+			await interaction.response.send_message("Stopping.")
+			vc.stop()
+		else:
+			await interaction.response.send_message("Bruh, literally nothing is playing.")
+			return
+	else:
+		await interaction.response.send_message("Bruh, I'm not even in call???")
+
+@bot.tree.command(name="pause", description="Pause.")
+async def pause(interaction: discord.Interaction):
+	if vc is not None:
+		if vc.is_playing():
+			await interaction.response.send_message("Pausing.")
+			vc.pause()
+		else:
+			await interaction.response.send_message("Bruh, literally nothing is playing.")
+			return
+	else:
+		await interaction.response.send_message("Bruh, I'm not even in call???")
+
+@bot.tree.command(name="resume", description="Resume.")
+async def resume(interaction: discord.Interaction):
+	if vc is not None:
+		if vc.is_playing():
+			await interaction.response.send_message("Resuming...")
+			vc.resume()
+		else:
+			await interaction.response.send_message("Bruh, literally nothing is playing.")
+			return
+	else:
+		await interaction.response.send_message("Bruh, I'm not even in call???")
+
+@bot.tree.command(name="clear-queue", description="Clear the queue.")
+async def clear(interaction: discord.Interaction):
+	await interaction.response.send_message("Deleting queue...")
+	Q.clear()
