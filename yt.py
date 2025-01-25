@@ -1,3 +1,5 @@
+import re
+
 from pytubefix import YouTube, Search
 import pytubefix
 
@@ -10,10 +12,14 @@ config = dotenv_values()
 
 #TODO: Make this return codes to be handled for decoupling.
 async def yt_download(link : str, interaction : Interaction, file_format : str ='mp4') -> str | None:
-	try:
-		yt = YouTube(link, use_oauth=True)
-	except Exception as e:
-		print(f"[ERROR]: Probably malformed link. Attempting to query: {e}")
+	link_data = re.search("(?:v=|\\/)([0-9A-Za-z_-]{11}).*", link)
+	if link_data is not None:
+		try:
+			yt = YouTube(link, use_oauth=True)
+		except Exception as e:
+			print(f"[ERROR]: {e}")
+			return None
+	else:
 		yt = await yt_search(link, interaction, command=False)
 
 	mp4_streams = yt.streams.filter(file_extension=file_format)
