@@ -25,7 +25,8 @@ async def join_voice(interaction : discord.Interaction) -> bool:
 	global vc
 	if len(bot.voice_clients): # This doesn't scale, btw. I could make a thing that looks for the guild and then sees what channel he's in, if there's a hit.
 		vc = bot.voice_clients[0]
-		print("Bot's already in call.")
+		if __debug__:
+			print("Bot's already in call.")
 		return True
 	if interaction.user.voice is None:
 		return False
