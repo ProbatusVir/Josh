@@ -55,17 +55,17 @@ async def queue(interaction: discord.Interaction):
 
 @bot.tree.command(name="stop", description="Stop something???.")
 async def stop(interaction: discord.Interaction):
-	command = slashclasses.Stop(interaction)
+	command = slashclasses.Stop(bot, interaction)
 	await command.execute()
 
 @bot.tree.command(name="pause", description="Pause.")
 async def pause(interaction: discord.Interaction):
-	command = slashclasses.Pause(interaction)
+	command = slashclasses.Pause(bot, interaction)
 	await command.execute()
 
 @bot.tree.command(name="resume", description="Resume.")
 async def resume(interaction: discord.Interaction):
-	command = slashclasses.Resume(interaction)
+	command = slashclasses.Resume(bot, interaction)
 	await command.execute()
 
 @bot.tree.command(name="clear-queue", description="Clear the queue.")
@@ -75,6 +75,6 @@ async def clear(interaction: discord.Interaction):
 
 @bot.tree.command(name="skip", description="Skip the current song.")
 async def skip(interaction: discord.Interaction):
-	command = slashclasses.Skip(interaction)
+	command = slashclasses.Skip(bot, interaction)
 	await command.execute()
 

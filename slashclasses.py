@@ -13,7 +13,10 @@ import yt
 #TODO: I'm sensing another rewrite...
 
 paused = False
-vc : VoiceClient | None = None
+def vc(bot : Bot) -> VoiceClient | None:
+	if len(bot.voice_clients) > 0:
+		return bot.voice_clients[0]
+
 Q : deque[str] = deque()
 
 config = declarations.config
@@ -31,10 +34,10 @@ class SlashCommand(ABC):
 	async def execute(self):
 		pass
 
-def in_call() -> PlayingState:
-	global vc
-	if vc is not None:
-		if vc.is_playing():
+def in_call(bot : Bot) -> PlayingState:
+	voice = vc(bot)
+	if voice is not None:
+		if voice.is_playing():
 			return PlayingState.Playing
 		else:
 			return PlayingState.NotPlaying
@@ -42,29 +45,27 @@ def in_call() -> PlayingState:
 		return PlayingState.Absent
 
 def get_vid_name(video : str) -> str:
-	return video.split('\\')[-1][:-4]
+	return video.split('/')[-1][:-4]
 
-async def join_voice(interaction : Interaction, bot : Bot) -> bool:
-	global vc
+async def join_voice(bot : Bot, interaction : Interaction) -> bool:
 	if len(bot.voice_clients): # This doesn't scale, btw. I could make a thing that looks for the guild and then sees what channel he's in, if there's a hit.
-		vc = bot.voice_clients[0]
 		if __debug__:
 			print("Bot's already in call.")
 		return True
 	if interaction.user.voice is None:
 		return False
 	channel = interaction.user.voice.channel
-	if channel is not None:
-		vc = await channel.connect(self_deaf=True)
+	if channel is not None:		#Already mentioned once, but this is pretty bad. I need a reference to the bot.voice_clients[index] for this to be good.
+		bot.voice_clients[0] = await channel.connect(self_deaf=True)
 		return True
 	else:
 		return False
 
 #Play the music
-async def play_music(interaction : Interaction) -> None:
-	global vc
+async def play_music(bot : Bot, interaction : Interaction) -> None:
+	voice = vc(bot)
 	global Q
-	while vc.is_playing():
+	while voice.is_playing():
 		await asyncio.sleep(1)
 
 	def after(e : Exception | None) ->  None:
@@ -75,14 +76,13 @@ async def play_music(interaction : Interaction) -> None:
 		song = Q[0]
 		await interaction.edit_original_response(content=f'Now playing {get_vid_name(song)}')
 		source = FFmpegOpusAudio(song)
-		vc.play(source, signal_type='music', after=after )
+		voice.play(source, signal_type='music', after=after )
 		Q.popleft()
-		while vc.is_playing() or paused:
+		while voice.is_playing() or paused:
 			await asyncio.sleep(1)
 		await interaction.edit_original_response(content=f"Finished {get_vid_name(song)}")
 	await interaction.edit_original_response(content="Finished queue!")
-	await vc.disconnect()
-	vc = None
+	await voice.disconnect()
 
 
 # noinspection PyUnresolvedReferences
@@ -156,15 +156,16 @@ class Sync(SlashCommand):
 
 # noinspection PyUnresolvedReferences
 class Skip(SlashCommand):
-	def __init__(self, interaction : Interaction):
+	def __init__(self, bot : Bot, interaction : Interaction):
 		self.interaction = interaction
+		self.bot = bot
 
 	async def execute(self):
-		global vc
+		voice = vc(self.bot)
 		await self.interaction.response.send_message("Skipping current song.")
-		if vc is not None:
-			if vc.is_playing():
-				vc.stop()
+		if voice is not None:
+			if voice.is_playing():
+				voice.stop()
 			else:
 				await self.interaction.edit_original_response(content="Bruh, literally nothing is playing.")
 		else:
@@ -180,8 +181,9 @@ class Play(SlashCommand):
 
 	async def execute(self):
 		global Q
+		voice = vc(self.bot)
 		# join logic
-		joined = await join_voice(self.interaction, self.bot)
+		joined = await join_voice(self.bot, self.interaction)
 		if not joined:
 			await self.interaction.response.send_message("There was no channel to join.")
 			return
@@ -189,10 +191,10 @@ class Play(SlashCommand):
 		await self.interaction.response.send_message("Looking for the video...")
 		Q.append(await yt.yt_download(self.query, self.interaction))
 		# since this runs in a loop later down, only the original function call must persist so as to not interrupt
-		if len(Q) > 1:
+		if voice.is_playing():
 			await self.interaction.edit_original_response(content=f'"{get_vid_name(Q[len(Q) - 1])}" queued!')
 			return
-		asyncio.create_task(play_music(self.interaction))
+		asyncio.create_task(play_music(self.bot, self.interaction))
 
 
 # noinspection PyUnresolvedReferences
@@ -214,17 +216,19 @@ class Queue(SlashCommand):
 
 # noinspection PyUnresolvedReferences
 class Stop(SlashCommand):
-	def __init__(self, interaction : Interaction):
+	def __init__(self, bot : Bot, interaction : Interaction):
 		self.interaction = interaction
+		self.bot = bot
+
 	async def execute(self):
-		global vc
+		voice = vc(self.bot)
 		global paused
 		global Q
-		if vc is not None:
+		if voice is not None:
 			if vc.is_playing():
 				await self.interaction.response.send_message("Stopping.")
 				Q.clear()
-				vc.stop()
+				voice.stop()
 			else:
 				await self.interaction.response.send_message("Bruh, literally nothing is playing.")
 				return
@@ -234,16 +238,18 @@ class Stop(SlashCommand):
 
 # noinspection PyUnresolvedReferences
 class Pause(SlashCommand):
-	def __init__(self, interaction : Interaction):
+	def __init__(self, bot : Bot, interaction : Interaction):
 		self.interaction = interaction
+		self.bot = bot
 
 	async def execute(self):
 		global paused
-		if vc is not None:
+		voice = vc(self.bot)
+		if voice is not None:
 			if vc.is_playing():
 				await self.interaction.response.send_message("Pausing.")
 				paused = True
-				vc.pause()
+				voice.pause()
 			else:
 				await self.interaction.response.send_message("Bruh, literally nothing is playing.")
 				return
@@ -253,15 +259,17 @@ class Pause(SlashCommand):
 
 # noinspection PyUnresolvedReferences
 class Resume(SlashCommand):
-	def __init__(self, interaction : Interaction):
+	def __init__(self, bot : Bot, interaction : Interaction):
 		self.interaction = interaction
+		self.bot = bot
 
 	async def execute(self):
 		global paused
-		if vc is not None:
+		voice = vc(self.bot)
+		if voice is not None:
 			await self.interaction.response.send_message("Resuming...")
 			paused = False
-			vc.resume()
+			voice.resume()
 		else:
 			await self.interaction.response.send_message("Bruh, I'm not even in call???")
 
@@ -293,14 +301,15 @@ class PlayFile(SlashCommand):
 		self.bot = bot
 
 	async def execute(self):
-		joined = await join_voice(self.interaction, self.bot)
+		joined = await join_voice(self.bot, self.interaction)
+		voice = vc(self.bot)
 		if not joined:
 			await self.interaction.response.send_message(f"There was no channel to join.")
 			return
 		await self.interaction.response.send_message(f"Joined {vc.channel.name}")
 		temp = await self.attachment.to_file()
 		source = FFmpegOpusAudio(f"{config["YT_SAVE_PATH"]}/viva la taper fade (I USED TO RULE THE WORLD FORTNITE PARODY).mp4")
-		vc.play(source)
+		voice.play(source)
 		await self.interaction.edit_original_response(content=f"Playing {temp.filename}")
 
 
