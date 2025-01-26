@@ -1,6 +1,6 @@
 import re
 
-from pytubefix import YouTube, Search
+from pytubefix import YouTube
 import pytubefix
 
 from dotenv import dotenv_values

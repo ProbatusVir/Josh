@@ -83,8 +83,9 @@ async def play_music(interaction : Interaction) -> None:
 	await interaction.edit_original_response(content="Finished queue!")
 	await vc.disconnect()
 	vc = None
-	playing = None
 
+
+# noinspection PyUnresolvedReferences
 class RunTime(SlashCommand):
 	def __init__(self, start_time, interaction : Interaction):
 		self.interaction = interaction
@@ -103,6 +104,8 @@ class Say(SlashCommand):
 	async def execute(self):
 		await self.interaction.response.send_message(f"{self.thing_to_say}")  # noqa
 
+
+# noinspection PyUnresolvedReferences
 class Search(SlashCommand):
 	def __init__(self, query : str, interaction : Interaction):
 		self.interaction = interaction
@@ -112,6 +115,8 @@ class Search(SlashCommand):
 		await self.interaction.response.send_message("Searching the tubes...") #noqa
 		await yt.yt_search(self.query, self.interaction)
 
+
+# noinspection PyUnresolvedReferences
 class Sync(SlashCommand):
 	def __init__(self, bot : Bot,interaction : Interaction | Message):
 		self.interaction = interaction
@@ -148,6 +153,8 @@ class Sync(SlashCommand):
 		else:
 			await self.interaction.reply(content=message)
 
+
+# noinspection PyUnresolvedReferences
 class Skip(SlashCommand):
 	def __init__(self, interaction : Interaction):
 		self.interaction = interaction
@@ -163,6 +170,8 @@ class Skip(SlashCommand):
 		else:
 			await self.interaction.edit_original_response(content="Bruh, I'm not even in call???")
 
+
+# noinspection PyUnresolvedReferences
 class Play(SlashCommand):
 	def __init__(self, query, bot : Bot, interaction : Interaction):
 		self.interaction = interaction
@@ -185,6 +194,8 @@ class Play(SlashCommand):
 			return
 		asyncio.create_task(play_music(self.interaction))
 
+
+# noinspection PyUnresolvedReferences
 class Queue(SlashCommand):
 	def __init__(self, interaction : Interaction):
 		self.interaction = interaction
@@ -200,6 +211,8 @@ class Queue(SlashCommand):
 			qrep += f"{i + 1}. {get_vid_name(e)}\n"
 		await self.interaction.response.send_message(qrep)
 
+
+# noinspection PyUnresolvedReferences
 class Stop(SlashCommand):
 	def __init__(self, interaction : Interaction):
 		self.interaction = interaction
@@ -218,6 +231,8 @@ class Stop(SlashCommand):
 		else:
 			await self.interaction.response.send_message("Bruh, I'm not even in call???")
 
+
+# noinspection PyUnresolvedReferences
 class Pause(SlashCommand):
 	def __init__(self, interaction : Interaction):
 		self.interaction = interaction
@@ -235,6 +250,8 @@ class Pause(SlashCommand):
 		else:
 			await self.interaction.response.send_message("Bruh, I'm not even in call???")
 
+
+# noinspection PyUnresolvedReferences
 class Resume(SlashCommand):
 	def __init__(self, interaction : Interaction):
 		self.interaction = interaction
@@ -248,6 +265,8 @@ class Resume(SlashCommand):
 		else:
 			await self.interaction.response.send_message("Bruh, I'm not even in call???")
 
+
+# noinspection PyUnresolvedReferences
 class PigLatin(SlashCommand):
 	def __init__(self, phrase : str, interaction : Interaction):
 		self.interaction = interaction
@@ -265,6 +284,8 @@ class PigLatin(SlashCommand):
 			new_phrase = new_phrase + word[1:] + " "
 		await self.interaction.response.send_message(new_phrase[:-1])
 
+
+# noinspection PyUnresolvedReferences
 class PlayFile(SlashCommand):
 	def __init__(self, attachment : Attachment, bot : Bot, interaction : Interaction):
 		self.interaction = interaction
@@ -282,6 +303,8 @@ class PlayFile(SlashCommand):
 		vc.play(source)
 		await self.interaction.edit_original_response(content=f"Playing {temp.filename}")
 
+
+# noinspection PyUnresolvedReferences
 class ClearQueue(SlashCommand):
 	def __init__(self, interaction : Interaction):
 		self.interaction = interaction
