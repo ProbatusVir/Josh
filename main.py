@@ -7,6 +7,7 @@ import discord
 import declarations
 import slashclasses
 import slashdeclarations
+import yt
 
 bot = declarations.bot
 config = declarations.config
@@ -25,11 +26,10 @@ async def on_message(message : discord.Message):
 	if message.author == bot.user:
 		return
 
-	if message.content.startswith(f'{bot.command_prefix}hello'):
+	elif message.content.startswith(f'{bot.command_prefix}hello'):
 		await message.channel.send(f"Hello! I came online at {declarations.start_time}!!!")
-		return
 
-	if message.content.startswith(f'{bot.command_prefix}reload'):
+	elif message.content.startswith(f'{bot.command_prefix}reload'):
 		await message.channel.send(f"Reloading...")
 		commands = bot.tree.get_commands()
 		print(f"Removing {len(commands)} commands")
@@ -38,15 +38,14 @@ async def on_message(message : discord.Message):
 
 		importlib.reload(slashclasses)
 		importlib.reload(slashdeclarations)
-		return
+		importlib.reload(yt)
 
-	if message.content.startswith(f'{bot.command_prefix}sync'):
+	elif message.content.startswith(f'{bot.command_prefix}sync'):
 		await slashclasses.Sync(bot, message).execute()
 
-	if message.content.startswith(f'{bot.command_prefix}clear') and message.author.name:
+	elif message.content.startswith(f'{bot.command_prefix}clear') and message.author.name:
 		await message.channel.send(f"Clearing logs...")
 		os.system('clear')
-		return
 
 
 
