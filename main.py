@@ -5,7 +5,8 @@ import os
 import discord
 
 import declarations
-import slashcommands
+import slashclasses
+import slashdeclarations
 
 bot = declarations.bot
 config = declarations.config
@@ -35,7 +36,8 @@ async def on_message(message : discord.Message):
 		for i in range(len(commands)):
 			bot.tree.remove_command(commands[i].name)
 
-		importlib.reload(slashcommands)
+		importlib.reload(slashclasses)
+		importlib.reload(slashdeclarations)
 		return
 
 	if message.content.startswith(f'{bot.command_prefix}clear') and message.author.name:
