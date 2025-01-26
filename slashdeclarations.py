@@ -16,50 +16,6 @@ config = declarations.config
 # I'm realizing now that I need a bot class to extend the base.
 start_time = declarations.start_time
 
-
-def get_vid_name(video : str) -> str:
-	return video.split('\\')[-1][:-4]
-
-async def join_voice(interaction : discord.Interaction) -> bool:
-	if len(bot.voice_clients): # This doesn't scale, btw. I could make a thing that looks for the guild and then sees what channel he's in, if there's a hit.
-		declarations.vc = bot.voice_clients[0]
-		if __debug__:
-			print("Bot's already in call.")
-		return True
-	if interaction.user.voice is None:
-		return False
-	channel = interaction.user.voice.channel
-	if channel is not None:
-		declarations.vc = await channel.connect(self_deaf=True)
-		return True
-	else:
-		return False
-
-#Play the music
-async def play_music(interaction : discord.Interaction) -> None:
-	while slashclasses.vc.is_playing():
-		await asyncio.sleep(1)
-
-
-
-	def after(e : Exception | None) ->  None:
-		if e is not None:
-			print(f'[ERROR] Unexpected: {e}')
-		slashclasses.Q.popleft()
-
-	while len(slashclasses.Q) > 0:
-		song = slashclasses.Q[0]
-		await interaction.edit_original_response(content=f'Now playing {get_vid_name(song)}')
-		source = discord.FFmpegOpusAudio(song)
-		slashclasses.vc.play(source, signal_type='music', after=after )
-		while slashclasses.vc.is_playing() or paused:
-			await asyncio.sleep(1)
-		await interaction.edit_original_response(content=f"Finished {get_vid_name(song)}")
-	await interaction.edit_original_response(content="Finished queue!")
-	await slashclasses.vc.disconnect()
-	vc = None
-	playing = None
-
 @bot.tree.command(
 	name="uptime",
 	description="Find out how long the bot's been running!",
@@ -102,7 +58,7 @@ async def search(interaction : discord.Interaction, query : str):
 
 @bot.tree.command(name="play-file", description="Play a file! WIP")
 async def play_file(interaction : discord.Interaction, file: discord.Attachment):
-	joined = await join_voice(interaction)
+	joined = await slashclasses.join_voice(interaction)
 	if not joined:
 		await interaction.response.send_message(f"There was no channel to join.")
 		return
@@ -115,32 +71,14 @@ async def play_file(interaction : discord.Interaction, file: discord.Attachment)
 @bot.tree.command(name="play", description="Play.")
 @app_commands.describe(yt_query="Accepts a YT link or a search")
 async def play(interaction: discord.Interaction, yt_query : str):
-	# join logic
-	joined = await join_voice(interaction)
-	if not joined:
-		await interaction.response.send_message("There was no channel to join.")
-		return
-	#look for video B)
-	await interaction.response.send_message("Looking for the video...")
-	slashclasses.Q.append(await yt.yt_download(yt_query, interaction))
-	# since this runs in a loop later down, only the original function call must persist so as to not interrupt
-	if len(slashclasses.Q) > 1:
-		await interaction.edit_original_response(content=f'"{get_vid_name(Q[len(Q) - 1])}" queued!')
-		return
-
-	asyncio.create_task(play_music(interaction))
+	command = slashclasses.Play(yt_query, bot, interaction)
+	await command.execute()
 
 
 @bot.tree.command(name="queue", description="Get the queue.")
 async def queue(interaction: discord.Interaction):
-	if len(slashclasses.Q) == 0:
-		await interaction.response.send_message("Nothing's playing!")
-		return
-	capture = slashclasses.Q.copy()
-	qrep = ""
-	for i, e in enumerate(capture):
-		qrep += f"{i + 1}. {get_vid_name(e)}\n"
-	await interaction.response.send_message(qrep)
+	command = slashclasses.Queue(interaction)
+	await command.execute()
 
 @bot.tree.command(name="stop", description="Stop something???.")
 async def stop(interaction: discord.Interaction):
@@ -185,12 +123,6 @@ async def clear(interaction: discord.Interaction):
 
 @bot.tree.command(name="skip", description="Skip the current song.")
 async def skip(interaction: discord.Interaction):
-	await interaction.response.send_message("Skipping current song.")
-	if slashclasses.vc is not None:
-		if slashclasses.vc.is_playing():
-			slashclasses.vc.stop()
-		else:
-			await interaction.edit_original_response(content="Bruh, literally nothing is playing.")
-	else:
-		await interaction.edit_original_response(content="Bruh, I'm not even in call???")
+	command = slashclasses.Skip(interaction)
+	await command.execute()
 
