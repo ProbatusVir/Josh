@@ -48,13 +48,13 @@ async def play_music(interaction : Interaction) -> None:
 	def after(e : Exception | None) ->  None:
 		if e is not None:
 			print(f'[ERROR] Unexpected: {e}')
-		Q.popleft()
 
 	while len(Q) > 0:
 		song = Q[0]
 		await interaction.edit_original_response(content=f'Now playing {get_vid_name(song)}')
 		source = FFmpegOpusAudio(song)
 		vc.play(source, signal_type='music', after=after )
+		Q.popleft()
 		while vc.is_playing() or paused:
 			await asyncio.sleep(1)
 		await interaction.edit_original_response(content=f"Finished {get_vid_name(song)}")
@@ -158,11 +158,62 @@ class Queue(SlashCommand):
 	async def execute(self):
 		global Q
 		if len(Q) == 0:
-			await self.interaction.response.send_message("Nothing's playing!")
+			await self.interaction.response.send_message("Nothing's queued!")
 			return
 		capture = Q.copy()
 		qrep = ""
 		for i, e in enumerate(capture):
 			qrep += f"{i + 1}. {get_vid_name(e)}\n"
 		await self.interaction.response.send_message(qrep)
+
+#TODO: needs testing.
+class Stop(SlashCommand):
+	def __init__(self, interaction : Interaction):
+		self.interaction = interaction
+	async def execute(self):
+		global vc
+		global paused
+		global Q
+		if vc is not None:
+			if vc.is_playing():
+				await self.interaction.response.send_message("Stopping.")
+				Q.clear()
+				vc.stop()
+			else:
+				await self.interaction.response.send_message("Bruh, literally nothing is playing.")
+				return
+		else:
+			await self.interaction.response.send_message("Bruh, I'm not even in call???")
+
+class Pause(SlashCommand):
+	def __init__(self, interaction : Interaction):
+		self.interaction = interaction
+
+	async def execute(self):
+		global paused
+		if vc is not None:
+			if vc.is_playing():
+				await self.interaction.response.send_message("Pausing.")
+				paused = True
+				vc.pause()
+			else:
+				await self.interaction.response.send_message("Bruh, literally nothing is playing.")
+				return
+		else:
+			await self.interaction.response.send_message("Bruh, I'm not even in call???")
+
+#TODO: needs testing
+class Resume(SlashCommand):
+	def __init__(self, interaction : Interaction):
+		self.interaction = interaction
+
+	async def execute(self):
+		global paused
+		if vc is not None:
+			await self.interaction.response.send_message("Resuming...")
+			paused = False
+			vc.resume()
+		else:
+			await self.interaction.response.send_message("Bruh, I'm not even in call???")
+
 

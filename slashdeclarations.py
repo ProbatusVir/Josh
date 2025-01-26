@@ -82,39 +82,18 @@ async def queue(interaction: discord.Interaction):
 
 @bot.tree.command(name="stop", description="Stop something???.")
 async def stop(interaction: discord.Interaction):
-	if slashclasses.vc is not None:
-		if slashclasses.vc.is_playing():
-			await interaction.response.send_message("Stopping.")
-			slashclasses.vc.stop()
-		else:
-			await interaction.response.send_message("Bruh, literally nothing is playing.")
-			return
-	else:
-		await interaction.response.send_message("Bruh, I'm not even in call???")
+	command = slashclasses.Stop(interaction)
+	await command.execute()
 
 @bot.tree.command(name="pause", description="Pause.")
 async def pause(interaction: discord.Interaction):
-	global paused
-	if slashclasses.vc is not None:
-		if slashclasses.vc.is_playing():
-			await interaction.response.send_message("Pausing.")
-			paused = True
-			slashclasses.vc.pause()
-		else:
-			await interaction.response.send_message("Bruh, literally nothing is playing.")
-			return
-	else:
-		await interaction.response.send_message("Bruh, I'm not even in call???")
+	command = slashclasses.Pause(interaction)
+	await command.execute()
 
 @bot.tree.command(name="resume", description="Resume.")
 async def resume(interaction: discord.Interaction):
-	global paused
-	if slashclasses.vc is not None:
-		await interaction.response.send_message("Resuming...")
-		paused = False
-		slashclasses.vc.resume()
-	else:
-		await interaction.response.send_message("Bruh, I'm not even in call???")
+	command = slashclasses.Resume(interaction)
+	await command.execute()
 
 @bot.tree.command(name="clear-queue", description="Clear the queue.")
 async def clear(interaction: discord.Interaction):
