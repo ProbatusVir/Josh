@@ -40,6 +40,9 @@ async def on_message(message : discord.Message):
 		importlib.reload(slashdeclarations)
 		return
 
+	if message.content.startswith(f'{bot.command_prefix}sync'):
+		await slashclasses.Sync(bot, message).execute()
+
 	if message.content.startswith(f'{bot.command_prefix}clear') and message.author.name:
 		await message.channel.send(f"Clearing logs...")
 		os.system('clear')
