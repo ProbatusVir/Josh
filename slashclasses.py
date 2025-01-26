@@ -1,23 +1,45 @@
 import asyncio
 from abc import ABC, abstractmethod
-from discord import Interaction, VoiceClient, FFmpegOpusAudio
+from discord import Interaction, VoiceClient, FFmpegOpusAudio, Attachment, Message
 from collections import deque
 import time
+from enum import Enum
 
 from discord.ext.commands import Bot
 
 import declarations
 import yt
 
+#TODO: I'm sensing another rewrite...
+
 paused = False
 vc : VoiceClient | None = None
 Q : deque[str] = deque()
+
+config = declarations.config
+
+#TODO: Make an enum file??
+class PlayingState(Enum):
+	Playing = 1
+	NotPlaying = 2
+	Absent = 3
+
 
 #The base class
 class SlashCommand(ABC):
 	@abstractmethod
 	async def execute(self):
 		pass
+
+def in_call() -> PlayingState:
+	global vc
+	if vc is not None:
+		if vc.is_playing():
+			return PlayingState.Playing
+		else:
+			return PlayingState.NotPlaying
+	else:
+		return PlayingState.Absent
 
 def get_vid_name(video : str) -> str:
 	return video.split('\\')[-1][:-4]
@@ -91,28 +113,40 @@ class Search(SlashCommand):
 		await yt.yt_search(self.query, self.interaction)
 
 class Sync(SlashCommand):
-	def __init__(self, bot : Bot,interaction : Interaction):
+	def __init__(self, bot : Bot,interaction : Interaction | Message):
 		self.interaction = interaction
 		self.bot = bot
 
 	async def execute(self):
-		if self.interaction.user.name != declarations.config["DEVELOPER_USERNAME"]:
-			await self.interaction.response.send_message(
-				f"You are not worthy to use this command {self.interaction.user.nick if self.interaction.user.nick is not None else self.interaction.user.global_name}")
+		username = self.interaction.user.name if self.interaction is Interaction else self.interaction.author.name
+		if username != config["DEVELOPER_USERNAME"]:
+			display_name = self.interaction.user.nick if self.interaction is Interaction else self.interaction.author.nick
+			fallback_name = self.interaction.user.global_name if self.interaction is Interaction else self.interaction.author.global_name
+			message = f"You are not worthy to use this command {display_name if display_name is not None else fallback_name}"
+			await self.interaction.channel.send(message)
 			return
 
-		await self.interaction.response.send_message(f"Attempting to sync slash commands to {self.interaction.guild}...")
+		attempt_message = f"Attempting to sync slash commands to {self.interaction.guild}..."
+		if self.interaction is Interaction:
+			await self.interaction.response.send_message(attempt_message)
+		else:
+			pass #await self.interaction.reply(attempt_message) # we don't really need to reply twice to a message
 		try:
 			synced = await self.bot.tree.sync()
 		except Exception as e:
-			await self.interaction.edit_original_response(content="Failed to sync commands")
+			message : str = "Failed to sync commands"
+			if self.interaction is Interaction:
+				await self.interaction.edit_original_response(content=message)
+			else:
+				await self.interaction.reply(content=message)
 			print(f'[ERROR]:\tFailed to sync commands: {e}')
 			return
 		print(f"Just attempted to sync {len(synced)} commands")
-		await self.interaction.edit_original_response(
-			content=f"Synchronized {len(synced)} slash commands to {self.interaction.guild}...")
-
-
+		message = f"Synchronized {len(synced)} slash commands to {self.interaction.guild}..."
+		if self.interaction is Interaction:
+			await self.interaction.edit_original_response(content=message)
+		else:
+			await self.interaction.reply(content=message)
 
 class Skip(SlashCommand):
 	def __init__(self, interaction : Interaction):
@@ -166,7 +200,6 @@ class Queue(SlashCommand):
 			qrep += f"{i + 1}. {get_vid_name(e)}\n"
 		await self.interaction.response.send_message(qrep)
 
-#TODO: needs testing.
 class Stop(SlashCommand):
 	def __init__(self, interaction : Interaction):
 		self.interaction = interaction
@@ -202,7 +235,6 @@ class Pause(SlashCommand):
 		else:
 			await self.interaction.response.send_message("Bruh, I'm not even in call???")
 
-#TODO: needs testing
 class Resume(SlashCommand):
 	def __init__(self, interaction : Interaction):
 		self.interaction = interaction
@@ -216,4 +248,49 @@ class Resume(SlashCommand):
 		else:
 			await self.interaction.response.send_message("Bruh, I'm not even in call???")
 
+class PigLatin(SlashCommand):
+	def __init__(self, phrase : str, interaction : Interaction):
+		self.interaction = interaction
+		self.phrase = phrase
+
+	async def execute(self):
+		if len(self.phrase) < 1:
+			return
+		words = self.phrase.split()
+		new_phrase: str = ""
+		for word in words:
+			word = word + word[0]
+			word = word + ("yay" if "aeiou".find(word[0].lower()) > -1
+						   else "ay")
+			new_phrase = new_phrase + word[1:] + " "
+		await self.interaction.response.send_message(new_phrase[:-1])
+
+class PlayFile(SlashCommand):
+	def __init__(self, attachment : Attachment, bot : Bot, interaction : Interaction):
+		self.interaction = interaction
+		self.attachment = attachment
+		self.bot = bot
+
+	async def execute(self):
+		joined = await join_voice(self.interaction, self.bot)
+		if not joined:
+			await self.interaction.response.send_message(f"There was no channel to join.")
+			return
+		await self.interaction.response.send_message(f"Joined {vc.channel.name}")
+		temp = await self.attachment.to_file()
+		source = FFmpegOpusAudio(f"{config["YT_SAVE_PATH"]}/viva la taper fade (I USED TO RULE THE WORLD FORTNITE PARODY).mp4")
+		vc.play(source)
+		await self.interaction.edit_original_response(content=f"Playing {temp.filename}")
+
+class ClearQueue(SlashCommand):
+	def __init__(self, interaction : Interaction):
+		self.interaction = interaction
+
+	async def execute(self):
+		global Q
+		if len(Q) == 0:
+			await self.interaction.response.send_message("Nothing's queued!")
+			return
+		Q.clear()
+		await self.interaction.response.send_message("Queue cleared.")
 

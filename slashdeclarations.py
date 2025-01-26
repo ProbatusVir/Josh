@@ -1,10 +1,4 @@
-import asyncio
-import collections
-import time
-
-import discord
 from discord import app_commands
-import yt
 
 import discord.opus
 
@@ -33,21 +27,7 @@ async def say(interaction: discord.Interaction, thing_to_say: str):
 @bot.tree.command(name="pig-latin", description="Write Pig-Latin!")
 @app_commands.describe(phrase="What to pig-latinize")
 async def piggy(interaction: discord.Interaction, phrase: str):
-	if len(phrase) < 1:
-		return
-	words = phrase.split()
-	new_phrase : str = ""
-	for word in words:
-		word = word + word[0]
-		word = word + ("yay" if "aeiou".find(word[0].lower()) > -1
-						   else "ay")
-		new_phrase = new_phrase + word[1:] + " "
-	await interaction.response.send_message(new_phrase[:-1])
-
-
-@bot.tree.command(name="sync", description=f'Only for {config["DEVELOPER_USERNAME"]}! Synchronizes slash commands with your server.')
-async def sync(interaction : discord.Interaction):
-	command = slashclasses.Sync(bot, interaction)
+	command = slashclasses.PigLatin(phrase, interaction)
 	await command.execute()
 
 @bot.tree.command(name="search", description="Get the top result of YouTube search")
@@ -58,15 +38,8 @@ async def search(interaction : discord.Interaction, query : str):
 
 @bot.tree.command(name="play-file", description="Play a file! WIP")
 async def play_file(interaction : discord.Interaction, file: discord.Attachment):
-	joined = await slashclasses.join_voice(interaction)
-	if not joined:
-		await interaction.response.send_message(f"There was no channel to join.")
-		return
-	await interaction.response.send_message(f"Joined {vc.channel.name}")
-	temp = await file.to_file()
-	source = discord.FFmpegOpusAudio(f"{config["YT_SAVE_PATH"]}/viva la taper fade (I USED TO RULE THE WORLD FORTNITE PARODY).mp4")
-	vc.play(source)
-	await interaction.edit_original_response(content=f"Playing {temp.filename}")
+	command = slashclasses.PlayFile(file, bot, interaction)
+	await command.execute()
 
 @bot.tree.command(name="play", description="Play.")
 @app_commands.describe(yt_query="Accepts a YT link or a search")
@@ -97,8 +70,8 @@ async def resume(interaction: discord.Interaction):
 
 @bot.tree.command(name="clear-queue", description="Clear the queue.")
 async def clear(interaction: discord.Interaction):
-	await interaction.response.send_message("Deleting queue...")
-	slashclasses.Q.clear()
+	command = slashclasses.ClearQueue(interaction)
+	await command.execute()
 
 @bot.tree.command(name="skip", description="Skip the current song.")
 async def skip(interaction: discord.Interaction):
