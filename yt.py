@@ -14,7 +14,7 @@ config = dotenv_values()
 delim : str = '|'
 
 def get_vid_name(video : str) -> str:
-	return video.split('\\')[-1][:-4]
+	return video.split('/')[-1][:-4]
 
 def find_in_cache(query : str) -> str | None:
 	if query.find(delim) != -1:
@@ -67,7 +67,7 @@ async def yt_download(query : str, interaction : Interaction, file_format : str 
 	d_video: pytubefix.streams.Stream = mp4_streams[-1] # The last one is the highest resolution
 
 	try:
-		path = d_video.download(output_path=config["YT_SAVE_PATH"], filename=f'{yt.title}.{file_format}', skip_existing=True)
+		path = d_video.download(output_path=config["YT_SAVE_PATH"], filename=f'{yt.title}.{file_format}', skip_existing=True).replace('\\', '/')
 		print(f"Successfully downloaded {yt.title}")
 	except Exception as e:
 		print(f"Uh oh! Something went wrong downloading the video!\t{e}")
