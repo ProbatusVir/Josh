@@ -48,11 +48,11 @@ def get_vid_name(video : str) -> str:
 	return video.split('/')[-1][:-4]
 
 async def join_voice(bot : Bot, interaction : Interaction) -> bool:
-	if len(bot.voice_clients): # This doesn't scale, btw. I could make a thing that looks for the guild and then sees what channel he's in, if there's a hit.
+	if vc(bot) is not None: # This doesn't scale, btw. I could make a thing that looks for the guild and then sees what channel he's in, if there's a hit.
 		if __debug__:
 			print("Bot's already in call.")
 		return True
-	if interaction.user.voice is None:
+	elif interaction.user.voice is None:
 		return False
 	channel = interaction.user.voice.channel
 	if channel is not None:		#Already mentioned once, but this is pretty bad. I need a reference to the bot.voice_clients[index] for this to be good.
@@ -181,9 +181,9 @@ class Play(SlashCommand):
 
 	async def execute(self):
 		global Q
-		voice = vc(self.bot)
 		# join logic
 		joined = await join_voice(self.bot, self.interaction)
+		voice = vc(self.bot)
 		if not joined:
 			await self.interaction.response.send_message("There was no channel to join.")
 			return
@@ -225,7 +225,7 @@ class Stop(SlashCommand):
 		global paused
 		global Q
 		if voice is not None:
-			if vc.is_playing():
+			if voice.is_playing():
 				await self.interaction.response.send_message("Stopping.")
 				Q.clear()
 				voice.stop()
@@ -246,7 +246,7 @@ class Pause(SlashCommand):
 		global paused
 		voice = vc(self.bot)
 		if voice is not None:
-			if vc.is_playing():
+			if voice.is_playing():
 				await self.interaction.response.send_message("Pausing.")
 				paused = True
 				voice.pause()
