@@ -11,6 +11,7 @@ import pytubefix.innertube
 
 config = dotenv_values()
 
+encoding = "utf-32"
 delim : str = '|'
 
 def get_vid_name(video : str) -> str:
@@ -20,7 +21,7 @@ def find_in_cache(query : str) -> str | None:
 	if query.find(delim) != -1:
 		return ""
 	try:
-		cache = io.open(f'{config["YT_SAVE_PATH"]}/cache.txt', 'rt')
+		cache = io.open(f'{config["YT_SAVE_PATH"]}/cache.txt', 'rt', encoding=encoding)
 	except Exception as e:
 		print(e)
 		return None #cache probably doesn't exist. Or is just plain inaccessible, either way, not that deep.
@@ -34,15 +35,16 @@ def find_in_cache(query : str) -> str | None:
 	return None
 
 def write_to_cache(query : str, filename : str):
-	cache = io.open(f'{config["YT_SAVE_PATH"]}/cache.txt', 'a')
+	cache = io.open(f'{config["YT_SAVE_PATH"]}/cache.txt', 'a', encoding=encoding)
 	cache.write(f'{query}{delim}{filename}\n')
 
 
 
 #TODO: Make this return codes to be handled for decoupling.
+# noinspection RegExpRedundantEscape
 async def yt_download(query : str, interaction : Interaction, file_format : str = 'mp4') -> str | None:
-	query = query.lower().strip()
-	cached = find_in_cache(query)
+	reduced_query = query.lower().strip()
+	cached = find_in_cache(reduced_query)
 	if cached == "":
 		await interaction.edit_original_response(content=f"Invalid character {delim} in query.")
 	elif cached is not None:
@@ -53,7 +55,7 @@ async def yt_download(query : str, interaction : Interaction, file_format : str 
 	else:
 		print("Did not find a cached file.")
 
-	link_data = re.search("(?:v=|\\/)([0-9A-Za-z_-]{11}).*", query)
+	link_data = re.search('(?:v=|\\/)([0-9A-Za-z_-]{11}).*', query)
 	if link_data is not None:
 		try:
 			yt = YouTube(query, use_oauth=True)
@@ -73,7 +75,7 @@ async def yt_download(query : str, interaction : Interaction, file_format : str 
 		print(f"Uh oh! Something went wrong downloading the video!\t{e}")
 		return None
 
-	write_to_cache(query, get_vid_name(path))
+	write_to_cache(reduced_query, get_vid_name(path))
 	return path
 
 async def yt_search(query : str, interaction : Interaction, command : bool = True) -> YouTube:
